@@ -394,7 +394,7 @@ const fetchFormattedGroups = async (
       try {
         const mappedMentorResponse =
           await axiosInstance.get<{ data?: CurrentGroupMentorApi[] }>(
-            `${ApiEndpoint.mentorMentee.mentors}/${group.mentors_group_id}`,
+            `${ApiEndpoint.mentorMentee.get_group_mentors}/${group.mentors_group_id}`,
             {
               validateStatus: () => true,
             },

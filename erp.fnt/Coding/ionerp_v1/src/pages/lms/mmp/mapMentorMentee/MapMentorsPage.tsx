@@ -1027,12 +1027,12 @@ const MapMentorsPage: React.FC = () => {
 
   const fetchMappedMentors = async (mentorsGroupId: number) => {
     const mappedMentorResponse =
-      await axiosInstance.get<MentorMappingsApiResponse>(
-        `${ApiEndpoint.mentorMentee.mentors}/${mentorsGroupId}`,
-        {
-          validateStatus: () => true,
-        },
-      );
+        await axiosInstance.get<MentorMappingsApiResponse>(
+            `${ApiEndpoint.mentorMentee.get_group_mentors}/${mentorsGroupId}`, // <-- CORRECTED
+            {
+            validateStatus: () => true,
+            },
+        );
 
     const mappedMentors =
       mappedMentorResponse.status === 200

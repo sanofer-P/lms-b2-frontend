@@ -673,7 +673,7 @@ const MapMenteesPage: React.FC = () => {
 
   const refreshCurrentGroupMentees = useCallback(async () => {
     const response = await axiosInstance.get<ApiEnvelope<GroupMenteeMapping[]>>(
-      `${ApiEndpoint.mentorMentee.mentees}/${mentorsGroupId}`,
+      `${ApiEndpoint.mentorMentee.get_group_mentees}/${mentorsGroupId}`,
     );
 
     const nextCurrentGroupMenteeMap = buildCurrentGroupMenteeMap(response.data?.data || []);
@@ -825,7 +825,7 @@ const MapMenteesPage: React.FC = () => {
             `${ApiEndpoint.mentorMentee.group_complete}/${mentorsGroupId}`,
           ),
           axiosInstance.get<ApiEnvelope<GroupMenteeMapping[]>>(
-            `${ApiEndpoint.mentorMentee.mentees}/${mentorsGroupId}`,
+            `${ApiEndpoint.mentorMentee.get_group_mentees}/${mentorsGroupId}`,
           ),
         ]);
 
