@@ -14,6 +14,12 @@ import {
 /** Format "HH:MM:SS" → "HH:MM AM/PM" */
 function formatTime(t: string | null): string {
   if (!t) return "—";
+  
+  // The migrated API may already return the legacy 12-hour display value.
+  if (/\b(?:AM|PM)\b/i.test(t)) {
+    return t.trim().toUpperCase();
+  }
+
   const [hStr, mStr] = t.split(":");
   const h = parseInt(hStr, 10);
   const m = mStr;
@@ -122,20 +128,21 @@ const MyClass: React.FC = () => {
 
   // ── 4. Load class list when all 5 filters are set ────────────────────
   const loadClassList = useCallback(async () => {
-    if (!studentId || !selCourse || !selSection || !selTerm || !selDate) {
+    if (!studentId || !selCurriculum || !selCourse || !selSection || !selTerm || !selDate) {
       setTableData([]);
       return;
     }
     setLoading(true);
     setCurrentPage(1);
     try {
-      const res = await getClassList(
+      const res = await getClassList({
         studentId,
-        Number(selCourse),
-        Number(selSection),
-        Number(selTerm),
-        selDate
-      );
+        academicBatchId: Number(selCurriculum),
+        courseId: Number(selCourse),
+        sectionId: Number(selSection),
+        semesterId: Number(selTerm),
+        selectedDate: selDate,
+      });
       setTableData(res.classes);
     } catch (err) {
       console.error(err);
@@ -143,7 +150,7 @@ const MyClass: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [studentId, selCourse, selSection, selTerm, selDate]);
+  }, [studentId, selCurriculum, selCourse, selSection, selTerm, selDate]);
 
   // Auto-load whenever any filter changes (if all are filled)
   useEffect(() => {
@@ -253,7 +260,7 @@ const MyClass: React.FC = () => {
               disabled={!sectionList.length}
               onChange={(e) => setSelSection(Number(e.target.value) || "")}
             >
-              <option value="">Se</option>
+              <option value="">Select Section</option>
               {sectionList.map((s) => (
                 <option key={s.section_id} value={s.section_id}>
                   {s.section_name}

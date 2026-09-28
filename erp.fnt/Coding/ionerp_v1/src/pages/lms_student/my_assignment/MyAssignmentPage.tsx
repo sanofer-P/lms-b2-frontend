@@ -34,7 +34,17 @@ interface SharedAssignment {
   update_count: number | null;
 }
 
+interface DropdownOption {
+  value: number;
+  label: string;
+}
+
 const STUDENT_ASSIGN_API = '/api/v1/student_assignment';
+
+const getResponseItems = (response: any): any[] => {
+  const items = response?.data?.data ?? response?.data?.items ?? response?.data;
+  return Array.isArray(items) ? items : [];
+};
 
 const fmtDate = (v: string | null) => {
   if (!v) return '—';
@@ -70,8 +80,12 @@ const MyAssignmentPage: React.FC = () => {
   const [showEntries, setShowEntries] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Course filter derived from loaded data — no API call needed
-  const [courseFilter, setCourseFilter] = useState('');
+  const [curriculums, setCurriculums] = useState<DropdownOption[]>([]);
+  const [terms, setTerms] = useState<DropdownOption[]>([]);
+  const [courses, setCourses] = useState<DropdownOption[]>([]);
+  const [selectedCurriculum, setSelectedCurriculum] = useState('');
+  const [selectedTerm, setSelectedTerm] = useState('');
+  const [selectedCourse, setSelectedCourse] = useState('');
 
   // Upload modal
   const [uploadModal, setUploadModal] = useState<SharedAssignment | null>(null);
@@ -81,22 +95,96 @@ const MyAssignmentPage: React.FC = () => {
   // Detail modal
   const [detailModal, setDetailModal] = useState<SharedAssignment | null>(null);
 
-  // Auto-load on mount — just student_id, no dropdowns needed
+  useEffect(() => {
+    const loadCurriculums = async () => {
+      try {
+        const response = await axiosInstance.get(
+          `${STUDENT_ASSIGN_API}/student-curriculums/${studentId}`,
+        );
+        const items = getResponseItems(response) as DropdownOption[];
+        setCurriculums(items);
+        setSelectedCurriculum(items[0] ? String(items[0].value) : '');
+      } catch {
+        setCurriculums([]);
+        setSelectedCurriculum('');
+        toast.error('Failed to load curriculum list');
+      }
+    };
+    loadCurriculums();
+  }, [studentId]);
+
+  useEffect(() => {
+    setTerms([]);
+    setCourses([]);
+    setAssignments([]);
+    setSelectedTerm('');
+    setSelectedCourse('');
+    if (!selectedCurriculum) return;
+
+    const loadTerms = async () => {
+      try {
+        const response = await axiosInstance.get(
+          `${STUDENT_ASSIGN_API}/semesters/${selectedCurriculum}`,
+          { params: { student_id: studentId } },
+        );
+        const items = getResponseItems(response) as DropdownOption[];
+        setTerms(items);
+        setSelectedTerm(items[0] ? String(items[0].value) : '');
+      } catch {
+        toast.error('Failed to load term list');
+      }
+    };
+    loadTerms();
+  }, [selectedCurriculum, studentId]);
+
+  useEffect(() => {
+    setCourses([]);
+    setAssignments([]);
+    setSelectedCourse('');
+    if (!selectedCurriculum || !selectedTerm) return;
+
+    const loadCourses = async () => {
+      try {
+        const response = await axiosInstance.get(`${STUDENT_ASSIGN_API}/student-courses`, {
+          params: {
+            student_id: studentId,
+            academic_batch_id: Number(selectedCurriculum),
+            semester_id: Number(selectedTerm),
+          },
+        });
+        const items = getResponseItems(response) as DropdownOption[];
+        setCourses(items);
+        setSelectedCourse(items[0] ? String(items[0].value) : '');
+      } catch {
+        toast.error('Failed to load course list');
+      }
+    };
+    loadCourses();
+  }, [selectedCurriculum, selectedTerm, studentId]);
+
   const fetchAssignments = useCallback(async () => {
+    if (!selectedCurriculum || !selectedTerm || !selectedCourse) {
+      setAssignments([]);
+      return;
+    }
     setLoading(true);
     try {
-      const r: any = await axiosInstance.get(`${STUDENT_ASSIGN_API}/my-assignments`, {
-        params: { student_id: studentId },
+      const response = await axiosInstance.get(`${STUDENT_ASSIGN_API}/my-assignments`, {
+        params: {
+          student_id: studentId,
+          academic_batch_id: Number(selectedCurriculum),
+          semester_id: Number(selectedTerm),
+          course_id: Number(selectedCourse),
+        },
       });
-      const items = r.data?.data?.items ?? r.data?.items ?? r.data;
-      setAssignments(Array.isArray(items) ? items : []);
+      setAssignments(getResponseItems(response) as SharedAssignment[]);
     } catch {
       setAssignments([]);
       toast.error('Failed to load assignments');
     } finally {
       setLoading(false);
     }
-  }, [studentId]);
+  }, [studentId, selectedCurriculum, selectedTerm, selectedCourse]);
 
   useEffect(() => { fetchAssignments(); }, [fetchAssignments]);
 
@@ -106,6 +194,7 @@ const MyAssignmentPage: React.FC = () => {
     try {
       const fd = new FormData();
       fd.append('file', uploadFile);
+      fd.append("student_id", String(studentId));
       await axiosInstance.post(
         `${STUDENT_ASSIGN_API}/student-upload/${uploadModal.map_assignment_student_id}`,
         fd,
@@ -140,13 +229,8 @@ const MyAssignmentPage: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // Derive unique courses for the course filter chip bar
-  const uniqueCourses = Array.from(
-    new Map(assignments.map(a => [a.crs_id, { crs_id: a.crs_id, crs_code: a.crs_code, crs_title: a.crs_title }])).values()
-  ).filter(c => c.crs_id);
-
   const filtered = assignments.filter(a => {
-    const matchesCourse = !courseFilter || String(a.crs_id) === courseFilter;
+    const matchesCourse = String(a.crs_id) === selectedCourse;
     const matchesSearch =
       a.assignment_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (a.topic_title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -173,35 +257,52 @@ const MyAssignmentPage: React.FC = () => {
 
         <div className="p-4">
 
-          {/* Summary bar */}
-          {!loading && assignments.length > 0 && (
-            <div className="mb-3 flex items-center gap-3 flex-wrap">
-              <span className="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-semibold border border-blue-200">
-                📋 {assignments.length} assignment{assignments.length !== 1 ? 's' : ''} shared with you
-              </span>
-              {/* Course filter chips */}
-              {uniqueCourses.length > 1 && (
-                <>
-                  <span className="text-xs text-gray-400">Filter by course:</span>
-                  <button
-                    onClick={() => { setCourseFilter(''); setCurrentPage(1); }}
-                    className={`text-xs px-2 py-0.5 rounded-full border transition ${!courseFilter ? 'bg-[#1f3a4f] text-white border-[#1f3a4f]' : 'bg-white text-gray-600 border-gray-300 hover:border-[#1f3a4f]'}`}
-                  >
-                    All
-                  </button>
-                  {uniqueCourses.map(c => (
-                    <button
-                      key={c.crs_id}
-                      onClick={() => { setCourseFilter(String(c.crs_id)); setCurrentPage(1); }}
-                      className={`text-xs px-2 py-0.5 rounded-full border transition ${courseFilter === String(c.crs_id) ? 'bg-[#1f3a4f] text-white border-[#1f3a4f]' : 'bg-white text-gray-600 border-gray-300 hover:border-[#1f3a4f]'}`}
-                    >
-                      {c.crs_code || c.crs_title}
-                    </button>
-                  ))}
-                </>
-              )}
-            </div>
-          )}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
+            <label className="block text-sm font-medium text-gray-700">
+              Curriculum: <span className="text-red-600">*</span>
+              <select
+                value={selectedCurriculum}
+                disabled={curriculums.length === 0}
+                onChange={e => { setSelectedCurriculum(e.target.value); setCurrentPage(1); }}
+                className="mt-1 block w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100"
+              >
+                {curriculums.length === 0 && <option value="">No curriculum available</option>}
+                {curriculums.map(item => (
+                  <option key={item.value} value={item.value}>{item.label}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block text-sm font-medium text-gray-700">
+              Term: <span className="text-red-600">*</span>
+              <select
+                value={selectedTerm}
+                disabled={!selectedCurriculum || terms.length === 0}
+                onChange={e => { setSelectedTerm(e.target.value); setCurrentPage(1); }}
+                className="mt-1 block w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100"
+              >
+                {terms.length === 0 && <option value="">No term available</option>}
+                {terms.map(item => (
+                  <option key={item.value} value={item.value}>{item.label}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block text-sm font-medium text-gray-700">
+              Course: <span className="text-red-600">*</span>
+              <select
+                value={selectedCourse}
+                disabled={!selectedTerm || courses.length === 0}
+                onChange={e => { setSelectedCourse(e.target.value); setCurrentPage(1); }}
+                className="mt-1 block w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100"
+              >
+                {courses.length === 0 && <option value="">No course available</option>}
+                {courses.map(item => (
+                  <option key={item.value} value={item.value}>{item.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
 
           {/* Table Controls */}
           <div className="flex justify-between items-center mb-3">

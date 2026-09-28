@@ -66,9 +66,12 @@ export const getStudentDropdowns = async (
 ): Promise<StudentDropdownResponse> => {
   const params: any = { student_id: studentId };
 
-if (semesterId) {
-  params.semester_id = semesterId;   // ✅ ADD THIS
-}
+  if (academicBatchId) {
+    params.academic_batch_id = academicBatchId;
+  }
+  if (semesterId) {
+    params.semester_id = semesterId;
+  }
   const res = await axios.get<StudentDropdownResponse>(
     api(ApiEndpoint.myClass.dropdowns),
     { params }
@@ -79,18 +82,29 @@ if (semesterId) {
 /**
  * Fetch class list for a student on a specific date.
  */
-export const getClassList = async (
-  studentId: number,
-  courseId: number,
-  sectionId: number,
-  semesterId: number,
-  selectedDate: string
-): Promise<ClassListResponse> => {
+export interface ClassListParams {
+  studentId: number;
+  academicBatchId: number;
+  courseId: number;
+  sectionId: number;
+  semesterId: number;
+  selectedDate: string;
+}
+
+export const getClassList = async ({
+  studentId,
+  academicBatchId,
+  courseId,
+  sectionId,
+  semesterId,
+  selectedDate,
+}: ClassListParams): Promise<ClassListResponse> => {
   const res = await axios.get<ClassListResponse>(
     api(ApiEndpoint.myClass.classList),
     {
       params: {
         student_id: studentId,
+        academic_batch_id: academicBatchId,
         course_id: courseId,
         section_id: sectionId,
         semester_id: semesterId,

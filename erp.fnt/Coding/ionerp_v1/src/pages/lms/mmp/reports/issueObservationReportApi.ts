@@ -1,7 +1,7 @@
 import axiosInstance from "../../../../utils/api";
 
 const ISSUE_OBSERVATION_REPORT_BASE = "issues_observations_report";
-
+// edu.erp\Coding\backend\app\api\v1\lms_module\lms_stud_issues_observations_report\lms_stud_issues_observations_report.py
 export type ApiEnvelope<T> = {
     status: boolean;
     message: string;
@@ -49,13 +49,15 @@ export type IssueObservationReportDetail = {
 };
 
 export type IssueObservationCurriculumTerm = {
-    term_id: number;
+    crclm_id: number;
+    crclm_name: string;
+    crclm_term_id: number;
     term_name: string;
 };
 
 export type IssueObservationCurriculumTermItem = {
-    academic_batch_id: number;
-    curriculum_name: string;
+    crclm_id: number;
+    crclm_name: string;
     terms: IssueObservationCurriculumTerm[];
 };
 
@@ -118,10 +120,10 @@ export type MentorAgreePayload = {
 };
 
 export const getStudentByUsn = async (studentUsn: string) => {
-    const response = await axiosInstance.get<ApiEnvelope<IssueObservationStudent>>(
-        `${ISSUE_OBSERVATION_REPORT_BASE}/get_student_by_usn/${encodeURIComponent(studentUsn)}`,
-    );
-    return response.data;
+  const response = await axiosInstance.get<ApiEnvelope<IssueObservationStudent>>(
+    `${ISSUE_OBSERVATION_REPORT_BASE}/get_student_by_usn/${encodeURIComponent(studentUsn)}`
+  );
+  return response.data;
 };
 
 export const getIssueObservationReports = async (studentId: number) => {
@@ -131,9 +133,9 @@ export const getIssueObservationReports = async (studentId: number) => {
     return response.data;
 };
 
-export const getIssueObservationCurriculumTerms = async (academicBatchId: number) => {
+export const getIssueObservationCurriculumTerms = async (studentUsn: string) => {
     const response = await axiosInstance.get<ApiEnvelope<IssueObservationCurriculumTermItem[]>>(
-        `${ISSUE_OBSERVATION_REPORT_BASE}/get_crclm_term/${academicBatchId}`,
+        `${ISSUE_OBSERVATION_REPORT_BASE}/get_crclm_term/${encodeURIComponent(studentUsn)}`,
     );
     return response.data;  
 };
@@ -192,4 +194,21 @@ export const mentorAgreeIssueObservation = async (
         payload,
     );
     return response.data;
+};
+
+export const exportIssueObservationPdf = async (reportId: number) => {
+    const response = await axiosInstance.post<Blob>(
+        `${ISSUE_OBSERVATION_REPORT_BASE}/export_issue_observation_pdf`,
+        { report_ids: [reportId] },
+        { responseType: "blob" },
+    );
+
+    const downloadUrl = window.URL.createObjectURL(response.data);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = `issues_observation_report_${reportId}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(downloadUrl);
 };

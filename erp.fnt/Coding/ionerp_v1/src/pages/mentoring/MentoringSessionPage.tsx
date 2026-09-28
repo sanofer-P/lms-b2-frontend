@@ -66,6 +66,23 @@ const parseTime = (timeStr: string) => {
     return { hour: "10", minute: "00", period: "AM" };
 };
 
+const toTimeInputValue = (timeStr: string) => {
+    const { hour, minute, period } = parseTime(timeStr);
+    let hour24 = Number(hour);
+    if (period === "PM" && hour24 < 12) hour24 += 12;
+    if (period === "AM" && hour24 === 12) hour24 = 0;
+    return `${String(hour24).padStart(2, "0")}:${minute}`;
+};
+
+const fromTimeInputValue = (value: string) => {
+    if (!value) return "";
+    const [rawHour, minute] = value.split(":");
+    const hour24 = Number(rawHour);
+    const period = hour24 >= 12 ? "PM" : "AM";
+    const hour12 = hour24 % 12 || 12;
+    return `${String(hour12).padStart(2, "0")}:${minute} ${period}`;
+};
+
 const MentoringSessionPage: React.FC = () => {
     const [isCreating, setIsCreating] = useState(false);
     const [editingScheduleId, setEditingScheduleId] = useState<number | null>(null);
@@ -585,6 +602,15 @@ const MentoringSessionPage: React.FC = () => {
     // --- Action Menu Handlers ---
     const handleToggleActionMenu = (key: string, e: React.MouseEvent<HTMLButtonElement>) => {
         e.stopPropagation();
+        const rect = e.currentTarget.getBoundingClientRect();
+        const menuWidth = 160;
+        const menuHeight = 88;
+        setActionMenuPos({
+            top: rect.bottom + menuHeight > window.innerHeight
+                ? Math.max(8, rect.top - menuHeight - 4)
+                : rect.bottom + 4,
+            left: Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)),
+        });
         setOpenActionMenuKey(prev => (prev === key ? null : key));
     };
 
@@ -1178,51 +1204,6 @@ const MentoringSessionPage: React.FC = () => {
                                                     <MoreVertical className="h-4 w-4" />
                                                 </button>
 
-                                                {/* Inline Action Dropdown */}
-                                                {openActionMenuKey === actionKey && (
-                                                    <>
-                                                        {/* Backdrop layer to capture outside clicks and close the menu */}
-                                                        <div 
-                                                            className="fixed inset-0 z-[100] cursor-default" 
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setOpenActionMenuKey(null);
-                                                            }}
-                                                        />
-                                                        {/* 
-                                                            Dropdown Menu Wrapper with Dynamic Alignment:
-                                                            - If it's the last row, or index is close to the end (e.g., sgIdx >= session.sub_groups.length - 1),
-                                                            we use 'bottom-full mb-1' to open the dropdown UPWARDS.
-                                                            - Otherwise, we use 'top-full mt-1' to open it DOWNWARDS.
-                                                        */}
-                                                        <div 
-                                                            className={`sticky right-4 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg py-1 z-[101] ${
-                                                                session.sub_groups && sgIdx >= session.sub_groups.length - 1
-                                                                    ? 'bottom-full mb-1' 
-                                                                    : 'top-full mt-1'
-                                                            }`}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <button
-                                                                type="button"
-                                                                className="w-full text-left px-4 py-2 text-[13px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-0 bg-transparent"
-                                                                onClick={() => handleOpenChangeStatus(actionKey)}
-                                                            >
-                                                                Change Status
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                className="w-full text-left px-4 py-2 text-[13px] text-red-650 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer border-0 bg-transparent"
-                                                                onClick={() => {
-                                                                    handleDeleteSession(session.schedule_id);
-                                                                    setOpenActionMenuKey(null);
-                                                                }}
-                                                            >
-                                                                Delete
-                                                            </button>
-                                                        </div>
-                                                    </>
-                                                )}
                                             </td>
                                         </tr>
                                     );
@@ -1448,8 +1429,6 @@ const MentoringSessionPage: React.FC = () => {
                         {sg.slots.map((slot, index) => {
                         const startInputId = `start-date-${sg.id}-${slot.id}`;
                         const endInputId = `end-date-${sg.id}-${slot.id}`;
-                        const startTimeParts = parseTime(slot.startTime);
-                        const endTimeParts = parseTime(slot.endTime);
                         const todayStr = new Date().toISOString().split("T")[0];
 
                         return (
@@ -1509,73 +1488,40 @@ const MentoringSessionPage: React.FC = () => {
                             </div>
 
                             {/* Times Column */}
-                            <div className="flex flex-col gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-[360px]">
                                 {/* Start Time */}
-                                <div className="flex flex-col gap-1.5 w-48">
+                                <div className="flex flex-col gap-1.5">
                                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Start Time</label>
-                                <div className="flex h-[34px] items-center border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-gray-700 overflow-hidden w-full">
-                                    <select
-                                    value={startTimeParts.hour}
-                                    onChange={(e) => handleUpdateTimePart(sg.id, slot.id, 'startTime', 'hour', e.target.value)}
-                                    className="px-2 py-1 text-[13px] text-slate-700 bg-white border-0 focus:outline-none dark:bg-gray-700 dark:text-slate-200 flex-grow text-center cursor-pointer"
-                                    >
-                                    {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map(h => (
-                                        <option key={h} value={h}>{h}</option>
-                                    ))}
-                                    </select>
-                                    <span className="text-slate-400 font-bold">:</span>
-                                    <select
-                                    value={startTimeParts.minute}
-                                    onChange={(e) => handleUpdateTimePart(sg.id, slot.id, 'startTime', 'minute', e.target.value)}
-                                    className="px-2 py-1 text-[13px] text-slate-700 bg-white border-0 focus:outline-none dark:bg-gray-700 dark:text-slate-200 flex-grow text-center cursor-pointer"
-                                    >
-                                    {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0")).map(m => (
-                                        <option key={m} value={m}>{m}</option>
-                                    ))}
-                                    </select>
-                                    <select
-                                    value={startTimeParts.period}
-                                    onChange={(e) => handleUpdateTimePart(sg.id, slot.id, 'startTime', 'period', e.target.value)}
-                                    className="px-2 py-1 text-[13px] text-slate-805 bg-slate-50 border-0 border-l border-slate-200 focus:outline-none dark:bg-gray-600 dark:text-slate-200 dark:border-slate-750 font-bold text-center cursor-pointer"
-                                    >
-                                    <option value="AM">AM</option>
-                                    <option value="PM">PM</option>
-                                    </select>
-                                </div>
+                                <input
+                                    type="time"
+                                    step="60"
+                                    value={toTimeInputValue(slot.startTime)}
+                                    onChange={(e) => handleUpdateSlot(
+                                        sg.id,
+                                        slot.id,
+                                        "startTime",
+                                        fromTimeInputValue(e.target.value)
+                                    )}
+                                    className="h-[38px] w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-gray-700 dark:text-slate-200"
+                                />
                                 </div>
 
                                 {/* End Time */}
-                                <div className="flex flex-col gap-1.5 w-48">
+                                <div className="flex flex-col gap-1.5">
                                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">End Time</label>
-                                <div className="flex h-[34px] items-center border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-gray-700 overflow-hidden w-full">
-                                    <select
-                                    value={endTimeParts.hour}
-                                    onChange={(e) => handleUpdateTimePart(sg.id, slot.id, 'endTime', 'hour', e.target.value)}
-                                    className="px-2 py-1 text-[13px] text-slate-700 bg-white border-0 focus:outline-none dark:bg-gray-700 dark:text-slate-200 flex-grow text-center cursor-pointer"
-                                    >
-                                    {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map(h => (
-                                        <option key={h} value={h}>{h}</option>
-                                    ))}
-                                    </select>
-                                    <span className="text-slate-400 font-bold">:</span>
-                                    <select
-                                    value={endTimeParts.minute}
-                                    onChange={(e) => handleUpdateTimePart(sg.id, slot.id, 'endTime', 'minute', e.target.value)}
-                                    className="px-2 py-1 text-[13px] text-slate-700 bg-white border-0 focus:outline-none dark:bg-gray-700 dark:text-slate-200 flex-grow text-center cursor-pointer"
-                                    >
-                                    {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0")).map(m => (
-                                        <option key={m} value={m}>{m}</option>
-                                    ))}
-                                    </select>
-                                    <select
-                                    value={endTimeParts.period}
-                                    onChange={(e) => handleUpdateTimePart(sg.id, slot.id, 'endTime', 'period', e.target.value)}
-                                    className="px-2 py-1 text-[13px] text-slate-805 bg-slate-50 border-0 border-l border-slate-200 focus:outline-none dark:bg-gray-600 dark:text-slate-200 dark:border-slate-750 font-bold text-center cursor-pointer"
-                                    >
-                                    <option value="AM">AM</option>
-                                    <option value="PM">PM</option>
-                                    </select>
-                                </div>
+                                <input
+                                    type="time"
+                                    step="60"
+                                    value={toTimeInputValue(slot.endTime)}
+                                    min={toTimeInputValue(slot.startTime)}
+                                    onChange={(e) => handleUpdateSlot(
+                                        sg.id,
+                                        slot.id,
+                                        "endTime",
+                                        fromTimeInputValue(e.target.value)
+                                    )}
+                                    className="h-[38px] w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-gray-700 dark:text-slate-200"
+                                />
                                 </div>
                             </div>
 
@@ -1732,28 +1678,28 @@ const MentoringSessionPage: React.FC = () => {
             </div>
         )}
 
-        {/* Fixed-position Action Dropdown (rendered outside overflow container) */}
-        {/* {openActionMenuKey && ( */}
+        {/* Fixed menu is outside the scrollable table, so it cannot be clipped. */}
+        {openActionMenuKey && (
             <>
-            {/* Backdrop to close on outside click */}
-            {/* <div
+            <div
                 className="fixed inset-0 z-[998]"
                 onClick={() => setOpenActionMenuKey(null)}
-            /> */}
-            {/* Dropdown menu at fixed coordinates */}
-            {/* <div
-                className="fixed z-[999] w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg py-1"
+            />
+            <div
+                className="fixed z-[999] w-40 rounded-lg border border-gray-200 bg-white py-1 shadow-xl dark:border-gray-700 dark:bg-gray-800"
                 style={{ top: actionMenuPos.top, left: actionMenuPos.left }}
                 onClick={(e) => e.stopPropagation()}
             >
                 <button
-                className="w-full text-left px-4 py-2 text-[13px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                type="button"
+                className="w-full cursor-pointer px-4 py-2 text-left text-[13px] text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                 onClick={() => handleOpenChangeStatus(openActionMenuKey)}
                 >
                 Change Status
                 </button>
                 <button
-                className="w-full text-left px-4 py-2 text-[13px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer"
+                type="button"
+                className="w-full cursor-pointer px-4 py-2 text-left text-[13px] text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20"
                 onClick={() => {
                     const scheduleId = Number(openActionMenuKey.split("-")[0]);
                     setOpenActionMenuKey(null);
@@ -1762,9 +1708,9 @@ const MentoringSessionPage: React.FC = () => {
                 >
                 Delete
                 </button>
-            </div> */}
+            </div>
             </>
-        {/* // )} */}
+        )}
 
         {/* --- Change Status Modal --- */}
         {isChangeStatusOpen && (

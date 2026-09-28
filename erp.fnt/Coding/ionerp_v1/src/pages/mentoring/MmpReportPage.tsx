@@ -69,6 +69,9 @@ const MmpReportPage: React.FC = () => {
         }
     }, []);
 
+    const mmpReportEndpoint = LmsApiEndpoint.mentoringSession.getMentoringSessions
+        .replace(/\/get_mentoring_sessions\/?$/, "/get_mmp_report");
+
     // 1. Fetch Curriculums on mount
     useEffect(() => {
         const fetchCurriculums = async () => {
@@ -105,19 +108,6 @@ const MmpReportPage: React.FC = () => {
 
         const loadCurriculumDetails = async () => {
         setGroupsLoading(true);
-        setTermsLoading(true);
-
-        const semRes = await apiCall(
-            `${LmsApiEndpoint.mentoringSession.semestersByCurriculum}/${selectedCurriculum}`,
-            "get"
-        );
-        if (semRes && semRes.status) {
-            setSemesters(semRes.data || []);
-        } else {
-            toast.error("Failed to load semesters.");
-        }
-        setTermsLoading(false);
-
         const groupRes = await apiCall(
             `${LmsApiEndpoint.mentoringSession.groupsByCurriculum}/${selectedCurriculum}`,
             "get"
@@ -133,9 +123,32 @@ const MmpReportPage: React.FC = () => {
         loadCurriculumDetails();
     }, [selectedCurriculum, apiCall]);
 
+    // Terms are mapped to a mentoring group, not only to a curriculum.
+    useEffect(() => {
+        setSelectedTerm("");
+        setSemesters([]);
+        if (!selectedCurriculum || !selectedGroup) return;
+
+        const loadMappedTerms = async () => {
+            setTermsLoading(true);
+            const res = await apiCall(
+                `${LmsApiEndpoint.mentoringSession.semestersByCurriculum}/${selectedCurriculum}?mentors_group_id=${selectedGroup}`,
+                "get"
+            );
+            if (res && res.status) {
+                setSemesters(res.data || []);
+            } else {
+                toast.error(res?.message || "Failed to load terms.");
+            }
+            setTermsLoading(false);
+        };
+
+        loadMappedTerms();
+    }, [selectedCurriculum, selectedGroup, apiCall]);
+
     // 3. Fetch Students when Mentoring Group changes
     useEffect(() => {
-        if (!selectedGroup) {
+        if (!selectedGroup || !selectedTerm) {
         setStudents([]);
         setSelectedStudent("");
         setReportList([]);
@@ -146,7 +159,7 @@ const MmpReportPage: React.FC = () => {
         const loadStudents = async () => {
         setStudentsLoading(true);
         const res = await apiCall(
-            `${LmsApiEndpoint.mentoringSession.groupMentees}/${selectedGroup}`,
+            `${LmsApiEndpoint.mentoringSession.groupMentees}/${selectedGroup}/${selectedTerm}`,
             "get"
         );
         if (res && res.status) {
@@ -158,7 +171,7 @@ const MmpReportPage: React.FC = () => {
         };
 
         loadStudents();
-    }, [selectedGroup, apiCall]);
+    }, [selectedGroup, selectedTerm, apiCall]);
 
     // 4. Update student profile info locally on student select and fetch comprehensive report details
     useEffect(() => {
@@ -174,70 +187,24 @@ const MmpReportPage: React.FC = () => {
         }
     }, [selectedStudent, students]);
 
-    useEffect(() => {
-        if (!selectedStudent || !selectedStudentInfo) {
-        setStudentReport(null);
-        return;
-        }
-
-        const fetchStudentReport = async () => {
-        setStudentReportLoading(true);
-        const res = await apiCall(
-            `api/v1/student-details/info?student_id=${selectedStudent}`,
-            "get"
-        );
-        if (res && res.status === true) {
-            setStudentReport(res.data);
-        } else {
-            setStudentReport(null);
-        }
-        setStudentReportLoading(false);
-        };
-
-        fetchStudentReport();
-    }, [selectedStudent, selectedStudentInfo, apiCall]);
-
     const handleExportPDF = async () => {
         if (!selectedStudentInfo) {
             toast.error("Please select a student first.");
             return;
         }
-        const usn = selectedStudentInfo.student_usn || studentReport?.personal_info?.usn;
-        if (!usn) {
-            toast.error("USN not found for the selected student.");
-            return;
-        }
-
         setExportingPdf(true);
         try {
-            // 1. Fetching PDF data as a Blob
-            // Cast the AxiosResponse to accept any data shape so TS doesn't default to {}
-            const response = await axiosInstance.get<any>(`api/v1/student-details/export/pdf?usn=${usn}`, {
-                responseType: 'blob'
-            });
-
-            // 2. Safeguard: Check if the response contains actual blob data
-            if (!response.data) {
-                throw new Error("No data received from server.");
-            }
-
-            // 3. Create blob with explicit PDF mime type
-            // Fixed: Cast response.data as BlobPart to satisfy TypeScript's strict type safety
-            const blob = new Blob([response.data as BlobPart], { type: 'application/pdf' });
-            const url = window.URL.createObjectURL(blob);
-            
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `student_profile_${usn}.pdf`; 
-            
-            document.body.appendChild(link); // Append to body for robust browser support
-            link.click();
-            
-            // Cleanup
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-            
-            toast.success("PDF exported successfully!");
+            const reportElement = document.getElementById("mmp-report-print-area");
+            if (!reportElement) throw new Error("Report content is not available.");
+            const printWindow = window.open("", "_blank", "width=1100,height=800");
+            if (!printWindow) throw new Error("Please allow pop-ups to export the report.");
+            printWindow.document.write(`<!doctype html><html><head><title>MMP Report</title>
+                <style>body{font-family:Arial,sans-serif;color:#111;padding:20px}table{width:100%;border-collapse:collapse;margin:12px 0}td,th{border:1px solid #999;padding:6px}.no-print,button{display:none!important}</style>
+                </head><body><h2>Mentor Mentee Program Report</h2>${reportElement.innerHTML}</body></html>`);
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+            printWindow.close();
         } catch (error: any) {
             console.error("Export PDF Error:", error);
             toast.error("Failed to export PDF.");
@@ -256,81 +223,46 @@ const MmpReportPage: React.FC = () => {
         const generateReport = async () => {
         setReportLoading(true);
         try {
-            // Fetch all mentoring sessions
-            const sessionsRes = await apiCall(LmsApiEndpoint.mentoringSession.getMentoringSessions, "get");
-            if (!sessionsRes || !sessionsRes.status) {
-                toast.error("Failed to fetch mentoring sessions.");
-                setReportLoading(false);
-                return;
-            }
-
-            // Filter sessions by selected Curriculum, Term, and Mentoring Group
-            const groupObj = groups.find(g => String(g.mentors_group_id) === selectedGroup);
-            const filteredSessions = (sessionsRes.data || []).filter((s: any) => {
-            const matchCurriculum = s.academic_batch_id === parseInt(selectedCurriculum);
-            const matchTerm = s.semester_id === parseInt(selectedTerm);
-            const matchGroup = groupObj ? s.group_name === groupObj.mentors_pgm_title : false;
-            return matchCurriculum && matchTerm && matchGroup;
+            setStudentReportLoading(true);
+            const params = new URLSearchParams({
+                academic_batch_id: selectedCurriculum,
+                mentors_group_id: selectedGroup,
+                semester_id: selectedTerm,
+                student_id: selectedStudent,
             });
-
-            // For each matching session, fetch the response of the selected student
-            const compiledReports: StudentSessionReport[] = [];
-            for (const session of filteredSessions) {
-            // Fetch mentees list with their responses
-            const menteesRes = await apiCall(`${LmsApiEndpoint.mentoring.sessions}/${session.schedule_id}/mentees`, "get");
-            let studentResponse: any = null;
-            let studentProfileFromSession: any = null;
-
-            if (menteesRes && menteesRes.status && menteesRes.data) {
-                const studentData = (menteesRes.data || []).find((m: any) => String(m.student_id) === selectedStudent);
-                if (studentData) {
-                studentProfileFromSession = studentData;
-                studentResponse = studentData.response || null;
-                }
+            const reportRes = await apiCall(`${mmpReportEndpoint}?${params.toString()}`, "get");
+            if (!reportRes || !reportRes.status) {
+                throw new Error(reportRes?.message || "Failed to fetch MMP report.");
             }
-
-            // Fetch chat comments history for this session & student
-            const chatRes = await apiCall(
-                `${LmsApiEndpoint.mentoring.sessions}/${session.schedule_id}/chat?mentee_id=${selectedStudent}`,
-                "get"
-            );
-            const chatComments = chatRes && chatRes.status ? (chatRes.data || []) : [];
-
-            // Keep details of student usn/email if not set yet
-            if (studentProfileFromSession && selectedStudentInfo) {
-                if (!selectedStudentInfo.student_usn && studentProfileFromSession.student_usn) {
-                setSelectedStudentInfo(prev => prev ? { ...prev, student_usn: studentProfileFromSession.student_usn } : null);
-                }
-                if (!selectedStudentInfo.student_email && studentProfileFromSession.student_email) {
-                setSelectedStudentInfo(prev => prev ? { ...prev, student_email: studentProfileFromSession.student_email } : null);
-                }
-            }
-
-            compiledReports.push({
-                session: {
-                schedule_id: session.schedule_id,
-                curriculum_id: session.academic_batch_id,
-                group_name: session.group_name,
-                semester_id: session.semester_id,
-                questionnaire_id: session.questionnaire_id,
-                session_agenda: session.session_agenda,
-                sub_groups: session.sub_groups || [],
+            const data = reportRes.data || {};
+            setReportList((data.sessions || []).map((session: any) => ({
+                session,
+                response: session.response || null,
+                comments: session.comments || [],
+            })));
+            setStudentReport({
+                personal_info: {
+                    full_name: data.student?.student_name,
+                    usn: data.student?.student_usn,
+                    email: data.student?.student_email,
+                    contact: data.student?.mobile,
+                    counsellor_name: (data.mentors || []).map((m: any) => m.mentor_name).join("\n"),
+                    curriculum: data.curriculum?.academic_batch_desc,
+                    program: data.group?.mentors_pgm_title,
                 },
-                response: studentResponse,
-                comments: chatComments,
+                questionnaire_responses: data.questionnaire_responses || [],
+                suggestions: data.suggestions || [],
             });
-            }
-
-            setReportList(compiledReports);
         } catch (err) {
             toast.error("An error occurred while compiling the report.");
         } finally {
             setReportLoading(false);
+            setStudentReportLoading(false);
         }
         };
 
         generateReport();
-    }, [selectedCurriculum, selectedGroup, selectedTerm, selectedStudent, groups, apiCall, selectedStudentInfo]);
+    }, [selectedCurriculum, selectedGroup, selectedTerm, selectedStudent, apiCall, mmpReportEndpoint]);
 
     const hasSelections = selectedCurriculum && selectedGroup && selectedTerm && selectedStudent;
 
@@ -395,7 +327,7 @@ const MmpReportPage: React.FC = () => {
                 <select
                     value={selectedTerm}
                     onChange={(e) => setSelectedTerm(e.target.value)}
-                    disabled={!selectedCurriculum || termsLoading}
+                    disabled={!selectedGroup || termsLoading}
                     className="w-full px-3 py-1.5 text-[13px] border border-gray-300 bg-white text-gray-750 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
                 >
                     <option value="">Select Term</option>
@@ -415,7 +347,7 @@ const MmpReportPage: React.FC = () => {
                 <select
                     value={selectedStudent}
                     onChange={(e) => setSelectedStudent(e.target.value)}
-                    disabled={!selectedGroup || studentsLoading}
+                    disabled={!selectedGroup || !selectedTerm || studentsLoading}
                     className="w-full px-3 py-1.5 text-[13px] border border-gray-300 bg-white text-gray-750 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
                 >
                     <option value="">Select Student</option>
@@ -442,7 +374,7 @@ const MmpReportPage: React.FC = () => {
                 No data to display
                 </div>
             ) : (
-                <div className="flex flex-col gap-6 animate-in fade-in duration-200">
+                <div id="mmp-report-print-area" className="flex flex-col gap-6 animate-in fade-in duration-200">
 
                 {/* Student Counselling Form (matching mockup style) */}
                 {studentReport && (
@@ -925,7 +857,7 @@ const MmpReportPage: React.FC = () => {
                                             {ans.selected_options.map((opt, oIdx) => (
                                             <span key={oIdx} className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5">
                                                 <span className="bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold">✓</span>
-                                                {opt.specification || "Option"}
+                                                {opt.option_text || opt.specification || "Option"}
                                             </span>
                                             ))}
                                         </div>

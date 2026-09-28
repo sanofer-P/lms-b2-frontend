@@ -14,11 +14,11 @@ import { FaHome, FaUsers, FaBook } from "react-icons/fa";
 import ManageTopicInstructor from "../pages/lms/manageTopicInstructor/ManageTopicInstructor";
 import ManageQuizPage from "../pages/lms/manageQuiz/ManageQuizPage";
 import ManageShareMaterialsPage from "../pages/lms/manageshare/ManageShareMaterialsPage";
-// import TimetableListPage from "../pages/lms/timetable/timetableListPage";
-import TimetableListPage from "../pages/lms/manageTimetable/Timetable";
+import TimetableListPage from "../pages/lms/timetable/timetableListPage";
+// import TimetableListPage from "../pages/lms/manageTimetable/Timetable";
 import TimetableCalendarPage from "../pages/lms/timetableCalendar/TimetableCalendarPage";
-// import ReceiveAnnouncementPage from "../pages/lms/ReciveAnnouncement/ReceiveAnnouncementPage";
-// import SendAnnouncementPage from "../pages/lms/sendAnnouncement/SendAnnouncementPage";
+import ReceiveAnnouncementPage from "../pages/lms/ReciveAnnouncement/ReceiveAnnouncementPage";
+import SendAnnouncementPage from "../pages/lms/sendAnnouncement/SendAnnouncementPage";
 import AnnouncementPage from "../pages/lms/announcement/AnnouncementPage";
 import ManageAssignmentPage from "../pages/lms/manageAssignment/ManageAssignmentPage";
 import CourseRegistrationPage from "../pages/lms/Registration_setup/CourseRegistrationPage";
@@ -36,7 +36,8 @@ import MyAssignmentPage from "../pages/lms_student/my_assignment/MyAssignmentPag
 import MyClass from "../pages/lms_student/student_myClass/MyClass";
 import MyQuizPage from "../pages/lms_student/myQuiz/MyQuizPage";
 import StudentAssignmentReport from "../pages/lms/studentAssignmentReport/StudentAssignmentReport";
-import TopicCoverageAndTracking from "../pages/lms/TopicCoverageAndTracking/TopicCoverageAndTracking"
+import StudentNotificationPage from "../pages/lms_student/notification/StudentNotificationPage";
+// import TopicCoverageAndTracking from "../pages/lms/TopicCoverageAndTracking/TopicCoverageAndTracking"
 
 export const MAINROUTE = [
   {
@@ -47,10 +48,68 @@ export const MAINROUTE = [
     roles: [],
     subItems: [],
   },
+    {
+    name: "Student",
+    href: "/student",
+    element: MyClass,
+    icon: React.createElement(
+      "div",
+      {
+        className:
+          "w-6 h-6 rounded bg-blue-600 flex items-center justify-center text-white mr-1.5",
+      },
+      React.createElement(FaBook, { size: 11 }),
+    ),
+    roles: [],
+    subItems: [
+      {
+        name: "MY Class",
+        href: "my-class",
+        element: MyClass,
+        roles: [],
+        subItems: [],
+      },
+      {
+        name: "Announcement",
+        href: "announcement",
+        element: StudentNotificationPage,
+        roles: [],
+        subItems: [],
+      },
+      {
+        name: "Shared Material",
+        href: "shared-material",
+        element: student_sharedmaterial,
+        roles: [],
+        subItems: [],
+      },
+      {
+        name: "My Assignment",
+        href: "my-assignment",
+        element: MyAssignmentPage,
+        roles: [],
+        subItems: [],
+      },
+      {
+        name: "My Quiz",
+        href: "my-quiz",
+        element: MyQuizPage,
+        roles: [],
+        subItems: [],
+      },
+      {
+        name: "My Attendance",
+        href: "my-attendance",
+        element: StudentAttendanceReport,
+        roles: [],
+        subItems: [],
+      },
+    ],
+  },
   {
     name: "LMS",
     href: "/lms",
-    element: ManageTopicInstructor,
+    element: ManageShareMaterialsPage,
     icon: React.createElement("div", { className: "w-6 h-6 rounded bg-emerald-600 flex items-center justify-center text-white mr-1.5" }, React.createElement(FaUsers, { size: 11 })),
     roles: [],
     subItems: [
@@ -93,22 +152,22 @@ export const MAINROUTE = [
       subItems: [],
       // hidden: true,
     },
-    // {
-    //   name: "Receive Announcement",
-    //   href: "receive-announcement",
-    //   element: ReceiveAnnouncementPage,
-    //   roles: [],
-    //   subItems: [],
-    //   // hidden: true,
-    // },
-    // {
-    //   name: "Send Announcement",
-    //   href: "send-announcement",
-    //   element: SendAnnouncementPage,
-    //   roles: [],
-    //   subItems: [],
-    //   // hidden: true,
-    // },
+    {
+      name: "Receive Announcement",
+      href: "receive-announcement",
+      element: ReceiveAnnouncementPage,
+      roles: [],
+      subItems: [],
+      // hidden: true,
+    },
+    {
+      name: "Send Announcement",
+      href: "send-announcement",
+      element: SendAnnouncementPage,
+      roles: [],
+      subItems: [],
+      // hidden: true,
+    },
       {
       name: "Announcement",
       href: "announcement",
@@ -144,7 +203,7 @@ export const MAINROUTE = [
   {
     name: "Reports",
     href: "/reports",
-    element: ManageTopicInstructor,
+    element: StudentAssignmentReport,
     icon: React.createElement("div", { className: "w-6 h-6 rounded bg-emerald-600 flex items-center justify-center text-white mr-1.5" }, React.createElement(FaUsers, { size: 11 })),
     roles: [],
     subItems: [
@@ -155,13 +214,13 @@ export const MAINROUTE = [
         roles: [],
         subItems: [],
       },
-      {
-        name: "Topic Coverage & Tracking",
-        href: "topic-coverage-tracking-report",
-        element: TopicCoverageAndTracking,
-        roles: [],
-        subItems: [],
-      },
+      // {
+      //   name: "Topic Coverage & Tracking",
+      //   href: "topic-coverage-tracking-report",
+      //   element: TopicCoverageAndTracking,
+      //   roles: [],
+      //   subItems: [],
+      // },
       {
         name: "DCTR Report",
         href: "student-dctr-report",

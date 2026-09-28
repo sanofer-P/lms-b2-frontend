@@ -19,27 +19,28 @@ import TimetableCalendarPage from "../pages/lms/timetableCalendar/TimetableCalen
 import ManageQuizPage from "../pages/lms/manageQuiz/ManageQuizPage";
 
 import TimetableListPage from "../pages/lms/timetable/timetableListPage";
-import StudentQuizReport from "../pages/lms/reports/student_StudentQuiz";
-import DCTRReport from "../pages/lms/reports/student_DCTRReport";
-import StudentRegistrationReport from "../pages/lms/reports/student_StudentRegistrationReport";
-import sharedmaterial from "../pages/lms/reports/student_sharedmaterial";
+// import StudentQuizReport from "../pages/lms/reports/student_StudentQuiz";
+// import DCTRReport from "../pages/lms/reports/student_DCTRReport";
+// import StudentRegistrationReport from "../pages/lms/reports/student_StudentRegistrationReport";
+// import sharedmaterial from "../pages/lms/reports/student_sharedmaterial";
 
 import AnnouncementPage from "../pages/lms/announcement/AnnouncementPage";
-import ManageAssignmentPage from "../pages/lms/manageAssignment/ManageAssignmentPage";
+// import ManageAssignmentPage from "../pages/lms/manageAssignment/ManageAssignmentPage";
 // import MyAssignmentPage from "../pages/lms/my_assignment/MyAssignmentPage";
 // import MyQuizPage from "../pages/lms/myQuiz/MyQuizPage";
 import AttendanceManagementPage from "../pages/lms/AttendanceManagement/AttendanceManagementPage";
 import CourseRegistrationPage from "../pages/lms/Registration_setup/CourseRegistrationPage";
-import StudentAssignmentReport from "../pages/lms/studentAssignmentReport/StudentAssignmentReport";
-import AttendanceStatusReportPage from "../pages/lms/attendanceStatusReport/AttendanceStatusReportPage";
-import StudentRecordPage from "../pages/lms/studentRecord/StudentRecordPage";
-import ConsolidatedAttendanceReportPage from "../pages/lms/consolidated_attendance/ConsolidatedAttendanceReportPage";
+// import StudentAssignmentReport from "../pages/lms/studentAssignmentReport/StudentAssignmentReport";
+// import AttendanceStatusReportPage from "../pages/lms/attendanceStatusReport/AttendanceStatusReportPage";
+// import StudentRecordPage from "../pages/lms/studentRecord/StudentRecordPage";
+// import ConsolidatedAttendanceReportPage from "../pages/lms/consolidated_attendance/ConsolidatedAttendanceReportPage";
 
 import ReceiveAnnouncementPage from "../pages/lms/receiveAnnouncement/ReceiveAnnouncementPage";
 import SendAnnouncementPage from "../pages/lms/sendAnnouncement/SendAnnouncementPage";
-import { AttendanceReportPage } from "../pages/lms/reports";
-import ConsolidatedAbsenteesReport from "../pages/lms/consolidatedAbsenteesReport/ConsolidatedAbsenteesReport";
-import TopicCoverageAndTracking from "../pages/lms/TopicCoverageAndTracking/TopicCoverageAndTracking";
+// import { AttendanceReportPage } from "../pages/lms/reports";
+// import ConsolidatedAbsenteesReport from "../pages/lms/consolidatedAbsenteesReport/ConsolidatedAbsenteesReport";
+// import TopicCoverageAndTracking from "../pages/lms/TopicCoverageAndTracking/TopicCoverageAndTracking";
+import MyAssignmentPage from "../pages/lms_student/my_assignment/MyAssignmentPage";
 // import MyClass from "../pages/lms/student_myClass/MyClass";
 
 export const LMSROUTE = [
@@ -101,7 +102,7 @@ export const LMSROUTE = [
         name: "Manage Assignment",
         href: "manage-assignment",
         roles: ["faculty"],
-        element: ManageAssignmentPage,
+        element: MyAssignmentPage,
       },
       {
         name: "Registration Setup",
