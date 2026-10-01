@@ -1,13 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { toast } from "react-toastify";
 import {
-  StudentAttendanceDaywiseRow,
-  StudentAttendanceFilters,
-  StudentAttendanceOption,
-  StudentAttendanceSummaryRow,
-  getAttendanceCurriculums,
-  getAttendanceDaywise,
-  getAttendanceSummary,
-  getAttendanceTerms,
+  StudentAttendanceDaywiseRow, StudentAttendanceFilters,
+  StudentAttendanceOption, StudentAttendanceSummaryRow,
+  getAttendanceCurriculums, getAttendanceDaywise, getAttendanceSummary,
+  getAttendanceTerms, uploadAttendanceDocument, viewAttendanceDocument,
 } from "./studentAttendanceService";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -60,6 +57,10 @@ const MyAttendancePage: React.FC = () => {
   const [daywisePageSize, setDaywisePageSize] = useState(10);
   const [daywisePage, setDaywisePage] = useState(1);
   const [daywiseSearch, setDaywiseSearch] = useState("");
+  const [uploadRow, setUploadRow] = useState<StudentAttendanceDaywiseRow | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const loadCurriculums = async () => {
@@ -135,7 +136,33 @@ const MyAttendancePage: React.FC = () => {
     };
 
     loadTables();
-  }, [canLoadTables, filters]);
+  }, [canLoadTables, filters, reloadKey]);
+
+  const handleUpload = async () => {
+    if (!uploadRow || !uploadFile) return;
+    const extension = uploadFile.name.split(".").pop()?.toLowerCase() || "";
+    if (!["jpeg", "jpg", "png", "pdf", "doc", "docx", "txt"].includes(extension)) {
+      toast.error("Only jpeg, jpg, png, pdf, doc, docx and txt files are allowed.");
+      return;
+    }
+    if (uploadFile.size > 5 * 1024 * 1024) {
+      toast.error("File size must be 5 MB or less.");
+      return;
+    }
+    try {
+      setUploading(true);
+      await uploadAttendanceDocument(uploadRow.attendanceId, uploadFile);
+      toast.success("File uploaded successfully.");
+      setUploadRow(null); setUploadFile(null); setReloadKey((value) => value + 1);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "File upload failed");
+    } finally { setUploading(false); }
+  };
+
+  const handleViewDocument = async (attendanceId: number) => {
+    try { await viewAttendanceDocument(attendanceId); }
+    catch (error) { toast.error(error instanceof Error ? error.message : "Unable to open document"); }
+  };
 
   useEffect(() => {
     setSummaryPage(1);
@@ -421,8 +448,8 @@ const MyAttendancePage: React.FC = () => {
                       pagedSummaryRows.map((row) => (
                         <tr key={`${row.course}-${row.totalClasses}`} className="hover:bg-gray-50">
                           <td className="px-3 py-3">{row.course}</td>
-                          <td className="px-3 py-3">{`${row.present} / ${row.totalClasses}`}</td>
-                          <td className="px-3 py-3">{formatPercentage(row.percentage)}</td>
+                          <td className={`px-3 py-3 ${row.attendanceLevel === "success" ? "text-green-600" : row.attendanceLevel === "warning" ? "text-orange-500" : "text-red-600"}`}>{`${row.present} / ${row.totalClasses}`}</td>
+                          <td className={`px-3 py-3 ${row.attendanceLevel === "success" ? "text-green-600" : row.attendanceLevel === "warning" ? "text-orange-500" : "text-red-600"}`}>{formatPercentage(row.percentage)}%</td>
                         </tr>
                       ))
                     )}
@@ -489,25 +516,23 @@ const MyAttendancePage: React.FC = () => {
                           </td>
                           <td className="px-3 py-3">{row.attendance}</td>
                           <td className="px-3 py-3">
-                            {row.attendanceDocumentUrl ? (
+                            {row.attendanceDocumentUrl && (
                               <button
                                 type="button"
-                                onClick={() =>
-                                  window.open(
-                                    row.attendanceDocumentUrl,
-                                    "_blank",
-                                    "noopener,noreferrer"
-                                  )
-                                }
+                                onClick={() => handleViewDocument(row.attendanceId)}
                                 className="text-blue-600 hover:underline"
                               >
                                 {row.attendanceDocument || "View File"}
                               </button>
-                            ) : (
-                              ""
+                            )}
+                            {row.canUpload && (
+                              <button type="button" onClick={() => { setUploadRow(row); setUploadFile(null); }}
+                                className={`${row.attendanceDocumentUrl ? "ml-3" : ""} text-emerald-600 hover:underline`}>
+                                Upload document
+                              </button>
                             )}
                           </td>
-                          <td className="px-3 py-3">{row.documentStatus}</td>
+                          <td className={`px-3 py-3 ${row.documentStatus === "Accepted" ? "text-green-600" : row.documentStatus === "Rejected" ? "text-red-700" : ""}`}>{row.documentStatus}</td>
                         </tr>
                       ))
                     )}
@@ -526,8 +551,33 @@ const MyAttendancePage: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {uploadRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-md bg-white shadow-xl">
+            <div className="border-b px-5 py-3 font-semibold">Student upload document</div>
+            <div className="space-y-4 p-5 text-sm">
+              <div><span className="font-medium">Course:</span> {uploadRow.course}</div>
+              <div><span className="font-medium">Class Date:</span> {formatAttendanceDate(uploadRow.attendanceDate)}</div>
+              <input type="file" accept=".jpeg,.jpg,.png,.pdf,.doc,.docx,.txt"
+                onChange={(event) => setUploadFile(event.target.files?.[0] || null)}
+                className="block w-full rounded border border-gray-300 p-2" />
+              <p className="text-xs text-gray-500">Allowed: jpeg, jpg, png, pdf, doc, docx, txt. Maximum size: 5 MB.</p>
+            </div>
+            <div className="flex justify-end gap-2 border-t px-5 py-3">
+              <button type="button" onClick={() => { setUploadRow(null); setUploadFile(null); }}
+                disabled={uploading} className="rounded bg-red-600 px-4 py-2 text-sm text-white">Cancel</button>
+              <button type="button" onClick={handleUpload} disabled={!uploadFile || uploading}
+                className="rounded bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50">
+                {uploading ? "Uploading..." : "Submit"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default MyAttendancePage;
+

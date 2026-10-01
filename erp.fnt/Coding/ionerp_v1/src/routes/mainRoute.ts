@@ -25,7 +25,7 @@ import CourseRegistrationPage from "../pages/lms/Registration_setup/CourseRegist
 import AttendanceManagementPage from "../pages/lms/AttendanceManagement/AttendanceManagementPage";
 
 import student_DCTRReport from "../pages/lms/reports/student_DCTRReport";
-import student_sharedmaterial from "../pages/lms/reports/student_sharedmaterial";
+// import student_sharedmaterial from "../pages/lms/reports/student_sharedmaterial";
 import AttendanceReportPage from "../pages/lms/reports/AttendanceReportPage";
 import studentRecordPage from "../pages/lms/studentRecord/StudentRecordPage";
 import StudentAttendanceReport from "../pages/lms/studentAttendanceReport/StudentAttendanceReport";
@@ -37,6 +37,8 @@ import MyClass from "../pages/lms_student/student_myClass/MyClass";
 import MyQuizPage from "../pages/lms_student/myQuiz/MyQuizPage";
 import StudentAssignmentReport from "../pages/lms/studentAssignmentReport/StudentAssignmentReport";
 import StudentNotificationPage from "../pages/lms_student/notification/StudentNotificationPage";
+import MyAttendancePage from "../pages/lms_student/attendance/MyAttendancePage";
+import StudentSharedMaterialPage from "../pages/lms_student/student_shared_material/StudentSharedMaterialPage";
 // import TopicCoverageAndTracking from "../pages/lms/TopicCoverageAndTracking/TopicCoverageAndTracking"
 
 export const MAINROUTE = [
@@ -79,7 +81,7 @@ export const MAINROUTE = [
       {
         name: "Shared Material",
         href: "shared-material",
-        element: student_sharedmaterial,
+        element: StudentSharedMaterialPage,
         roles: [],
         subItems: [],
       },
@@ -100,7 +102,7 @@ export const MAINROUTE = [
       {
         name: "My Attendance",
         href: "my-attendance",
-        element: StudentAttendanceReport,
+        element: MyAttendancePage,
         roles: [],
         subItems: [],
       },

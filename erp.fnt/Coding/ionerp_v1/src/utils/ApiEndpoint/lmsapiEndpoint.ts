@@ -407,6 +407,15 @@
         classList: "api/v1/my-class/class-list",
     },
 
+    studentSharedMaterial: {
+        curriculums: "api/v1/student_shared_material/curriculums",
+        terms: "api/v1/student_shared_material/terms",
+        courses: "api/v1/student_shared_material/courses",
+        materials: "api/v1/student_shared_material/materials",
+        download: (matId: number, fileIndex: number) =>
+            `api/v1/student_shared_material/download/${matId}/${fileIndex}`,
+    },
+
     consolidatedStudentMarksReport: {
         departments: "api/v1/conso_student_marks_report/departments",
         curriculums: "api/v1/conso_student_marks_report/curriculums",
@@ -423,8 +432,11 @@
         terms: (curriculumId: string) => `api/v1/student_attendance_report/terms/${curriculumId}`,
         courses: "api/v1/student_attendance_report/courses",
         sections: (curriculumId: string, termId: string) =>`api/v1/student_attendance_report/sections/${curriculumId}/${termId}`,
+        daywise: "/api/v1/student_attendance_report/daywise",
         lessonDates: "api/v1/student_attendance_report/lesson-dates",
         summary: "api/v1/student_attendance_report/summary",
+        uploadDocument: "api/v1/student_attendance_report/upload-document",
+        document: (attendanceId: number) => `api/v1/student_attendance_report/document/${attendanceId}`,
     },
 
     // studentQuiz: {

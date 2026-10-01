@@ -120,7 +120,7 @@ const deleteMaterial = async (id: number) => {
           letterSpacing: "0.3px",
         }}
       >
-        Materials List
+        Materials List 111
       </div>
 
       {/* Body */}

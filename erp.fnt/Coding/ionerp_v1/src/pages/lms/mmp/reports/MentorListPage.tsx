@@ -24,7 +24,7 @@ const MentorListPage: React.FC = () => {
       <div className="grid grid-cols-[1.2fr_0.8fr_1.2fr_0.8fr_auto] gap-9">
         <div>
           <label className="mb-2 block text-sm font-semibold">
-            Department: <span className="text-red-500">*</span>
+            Department1111: <span className="text-red-500">*</span>
           </label>
           <select className="w-full rounded border border-gray-300 px-5 py-2">
             <option>Select Department</option>
@@ -62,7 +62,7 @@ const MentorListPage: React.FC = () => {
             className="rounded bg-green-500 px-4 py-2 text-sm text-white"
             onClick={() => setShowExport(!showExport)}
           >
-            Export v
+            Export 
           </button>
           {showExport && (
             <div className="absolute right-0 top-20 rounded border bg-white px-4 py-3 text-sm shadow">

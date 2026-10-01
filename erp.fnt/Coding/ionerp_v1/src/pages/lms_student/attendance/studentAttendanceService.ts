@@ -1,232 +1,168 @@
 import axiosInstance from "../../../utils/api";
 import { ApiEndpoint } from "../../../utils/ApiEndpoint/lmsApiEndpoint";
-import { LocalStorageHelper } from "../../../utils/localStorageHelper";
-import { loginData } from "../../../pages/login/loginModel";
 
-export interface StudentAttendanceOption {
-  value: string;
-  label: string;
-  semesterId?: number;
-  semesterNumber?: number;
-}
-
-export interface StudentAttendanceSummaryRow {
-  course: string;
-  present: number;
-  totalClasses: number;
-  percentage: number;
-}
-
-export interface StudentAttendanceDaywiseRow {
-  course: string;
-  attendance: string;
-  attendanceDocument: string;
-  attendanceDocumentUrl: string;
-  documentStatus: string;
-  attendanceDate: string;
-}
-
+export interface StudentAttendanceOption { value: string; label: string }
 export interface StudentAttendanceFilters {
   curriculumId: string;
   termId: string;
   fromMonth: string;
   toMonth: string;
 }
-
-interface ApiErrorBody {
-  message?: string;
-  detail?: string;
-  error?: string;
+export interface StudentAttendanceSummaryRow {
+  course: string;
+  present: number;
+  totalClasses: number;
+  percentage: number;
+  attendanceLevel: "success" | "warning" | "danger";
+}
+export interface StudentAttendanceDaywiseRow {
+  attendanceId: number;
+  course: string;
+  attendance: string;
+  attendanceDocument: string;
+  attendanceDocumentUrl: string;
+  documentStatus: string;
+  attendanceDate: string;
+  canUpload: boolean;
 }
 
-const getStudentId = () => {
-  const authState = LocalStorageHelper.getObject<loginData>("auth_state");
-  const possibleId = (authState as loginData & { id?: number })?.user_id ?? (authState as any)?.id;
-  return typeof possibleId === "number" ? possibleId : null;
-};
+type ApiRow = Record<string, unknown>;
 
-const buildStudentParams = (studentId?: number | null) => {
-  const resolvedStudentId = studentId ?? getStudentId();
-  if (!resolvedStudentId) {
-    throw new Error("Student identity could not be resolved from the current session.");
-  }
+const api = ApiEndpoint.studentAttendanceReport;
 
-  return { student_id: resolvedStudentId };
-};
-
-const extractBody = <T,>(response: { data: T }) => {
-  const body = response.data as T & { data?: unknown };
-  if (body && typeof body === "object" && "data" in body && body.data !== undefined) {
-    return body.data;
-  }
-  return body;
-};
-
-const ensureArray = <T,>(value: unknown): T[] => {
+const ensureArray = (value: unknown): ApiRow[] => {
   if (Array.isArray(value)) {
-    return value as T[];
+    return value.filter(
+      (item): item is ApiRow =>
+        typeof item === "object" && item !== null && !Array.isArray(item),
+    );
   }
 
-  if (value && typeof value === "object") {
-    const objectValue = value as Record<string, unknown>;
-    if (Array.isArray(objectValue.data)) {
-      return objectValue.data as T[];
-    }
-    if (Array.isArray(objectValue.items)) {
-      return objectValue.items as T[];
-    }
-    if (Array.isArray(objectValue.results)) {
-      return objectValue.results as T[];
+  if (typeof value === "object" && value !== null) {
+    const body = value as Record<string, unknown>;
+    const nested = body.data ?? body.results ?? body.items;
+    if (Array.isArray(nested)) {
+      return ensureArray(nested);
     }
   }
 
   return [];
 };
 
-const buildErrorMessage = (error: unknown, fallback: string) => {
-  if (typeof error === "object" && error !== null && "response" in error) {
-    const axiosError = error as {
-      message?: string;
-      response?: {
-        data?: ApiErrorBody | string;
-      };
-    };
-    const responseData = axiosError.response?.data;
-
-    if (typeof responseData === "string" && responseData.trim()) {
-      return responseData;
-    }
-
-    if (responseData && typeof responseData === "object") {
-      return responseData.message || responseData.detail || responseData.error || fallback;
-    }
-
-    return axiosError.message || fallback;
-  }
-
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return fallback;
+const errorMessage = (error: unknown, fallback: string) => {
+  const value = error as { response?: { data?: { detail?: string; message?: string } }; message?: string };
+  return value.response?.data?.detail || value.response?.data?.message || value.message || fallback;
 };
-
-const buildFileUrl = (fileUrl: string | null | undefined) => {
-  if (!fileUrl) {
-    return "";
-  }
-
-  if (/^https?:\/\//i.test(fileUrl)) {
-    return fileUrl;
-  }
-
-  const baseUrl = axiosInstance.defaults.baseURL ?? "";
-  return `${baseUrl}${fileUrl.startsWith("/") ? fileUrl : `/${fileUrl}`}`;
-};
-
-const normalizeCurriculumOptions = (
-  items: Record<string, unknown>[]
-): StudentAttendanceOption[] =>
-  items
-    .map((item) => ({
-      value: String(item.curriculum_id ?? item.crclm_id ?? item.id ?? ""),
-      label: String(item.curriculum_name ?? item.academic_batch_desc ?? item.label ?? "Curriculum"),
-    }))
-    .filter((item) => Boolean(item.value));
-
-const normalizeTermOptions = (items: Record<string, unknown>[]): StudentAttendanceOption[] =>
-  items
-    .map((item) => ({
-      value: String(item.term_id ?? item.crclm_term_id ?? item.semester_id ?? item.id ?? ""),
-      label: String(item.term_name ?? item.semester_desc ?? item.label ?? "Term"),
-      semesterId: Number(item.semester_id ?? 0) || undefined,
-      semesterNumber: Number(item.semester_number ?? 0) || undefined,
-    }))
-    .filter((item) => Boolean(item.value));
-
-const normalizeSummaryRows = (items: Record<string, unknown>[]): StudentAttendanceSummaryRow[] =>
-  items.map((item) => ({
-    course: String(item.course ?? ""),
-    present: Number(item.present ?? 0),
-    totalClasses: Number(item.total_classes ?? 0),
-    percentage: Number(item.percentage ?? 0),
-  }));
-
-const normalizeDaywiseRows = (items: Record<string, unknown>[]): StudentAttendanceDaywiseRow[] =>
-  items.map((item) => ({
-    course: String(item.course ?? ""),
-    attendance: String(item.attendance ?? ""),
-    attendanceDocument: String(item.attendance_document ?? ""),
-    attendanceDocumentUrl: buildFileUrl(String(item.attendance_document_url ?? "")),
-    documentStatus: String(item.document_status ?? ""),
-    attendanceDate: String(item.attendance_date ?? ""),
-  }));
-
-const buildAttendanceParams = (
-  filters: StudentAttendanceFilters,
-  studentId?: number | null
-) => ({
-  ...buildStudentParams(studentId),
-  curriculum_id: Number(filters.curriculumId),
-  term_id: Number(filters.termId),
+const paramsFor = (filters: StudentAttendanceFilters) => ({
+  academic_batch_id: filters.curriculumId,
+  semester_id: filters.termId,
   from_month: filters.fromMonth,
   to_month: filters.toMonth,
 });
 
-export const getAttendanceCurriculums = async (studentId?: number | null) => {
+export const getAttendanceCurriculums = async (): Promise<
+  StudentAttendanceOption[]
+> => {
   try {
-    const response = await axiosInstance.get(ApiEndpoint.student.attendance.curriculums, {
-      params: buildStudentParams(studentId),
-    });
-    return normalizeCurriculumOptions(
-      ensureArray<Record<string, unknown>>(extractBody(response))
-    );
+    const response = await axiosInstance.get(api.curriculums);
+    return ensureArray(response.data).map((row) => ({
+      value: String(row.value ?? row.academic_batch_id ?? ""),
+      label: String(row.label ?? row.academic_batch_desc ?? ""),
+    }));
   } catch (error) {
-    throw new Error(buildErrorMessage(error, "Failed to load curriculums"));
+    throw new Error(errorMessage(error, "Failed to load curriculums"));
   }
 };
 
 export const getAttendanceTerms = async (
   curriculumId: string,
-  studentId?: number | null
-) => {
+): Promise<StudentAttendanceOption[]> => {
   try {
-    const response = await axiosInstance.get(ApiEndpoint.student.attendance.terms, {
-      params: {
-        ...buildStudentParams(studentId),
-        curriculum_id: Number(curriculumId),
-      },
-    });
-    return normalizeTermOptions(ensureArray<Record<string, unknown>>(extractBody(response)));
+    const response = await axiosInstance.get(api.terms(curriculumId));
+    return ensureArray(response.data).map((row) => ({
+      value: String(row.value ?? row.semester_id ?? ""),
+      label: String(row.label ?? row.semester_desc ?? ""),
+    }));
   } catch (error) {
-    throw new Error(buildErrorMessage(error, "Failed to load terms"));
+    throw new Error(errorMessage(error, "Failed to load terms"));
   }
 };
 
 export const getAttendanceSummary = async (
   filters: StudentAttendanceFilters,
-  studentId?: number | null
-) => {
+): Promise<StudentAttendanceSummaryRow[]> => {
   try {
-    const response = await axiosInstance.get(ApiEndpoint.student.attendance.summary, {
-      params: buildAttendanceParams(filters, studentId),
+    const response = await axiosInstance.get(api.summary, {
+      params: paramsFor(filters),
     });
-    return normalizeSummaryRows(ensureArray<Record<string, unknown>>(extractBody(response)));
+    return ensureArray(response.data).map((row) => ({
+      course: String(row.course ?? ""),
+      present: Number(row.present ?? 0),
+      totalClasses: Number(row.total_classes ?? 0),
+      percentage: Number(row.percentage ?? 0),
+      attendanceLevel: String(
+        row.attendance_level ?? "danger",
+      ) as StudentAttendanceSummaryRow["attendanceLevel"],
+    }));
   } catch (error) {
-    throw new Error(buildErrorMessage(error, "Failed to load attendance summary"));
+    throw new Error(errorMessage(error, "Failed to load attendance summary"));
   }
 };
 
 export const getAttendanceDaywise = async (
   filters: StudentAttendanceFilters,
-  studentId?: number | null
-) => {
+): Promise<StudentAttendanceDaywiseRow[]> => {
   try {
-    const response = await axiosInstance.get(ApiEndpoint.student.attendance.daywise, {
-      params: buildAttendanceParams(filters, studentId),
+    const response = await axiosInstance.get(api.daywise, {
+      params: paramsFor(filters),
     });
-    return normalizeDaywiseRows(ensureArray<Record<string, unknown>>(extractBody(response)));
+    return ensureArray(response.data).map((row) => ({
+      attendanceId: Number(row.attendance_id ?? 0),
+      course: String(row.course ?? ""),
+      attendance: String(row.attendance ?? ""),
+      attendanceDocument: String(row.attendance_document ?? ""),
+      attendanceDocumentUrl: String(row.attendance_document_url ?? ""),
+      documentStatus: String(row.document_status ?? ""),
+      attendanceDate: String(row.attendance_date ?? ""),
+      canUpload: Boolean(row.can_upload),
+    }));
   } catch (error) {
-    throw new Error(buildErrorMessage(error, "Failed to load daywise attendance"));
+    throw new Error(errorMessage(error, "Failed to load daywise attendance"));
+  }
+};
+
+
+export const uploadAttendanceDocument = async (
+  attendanceId: number,
+  file: File,
+) => {
+  const form = new FormData();
+  form.append("attendance_id", String(attendanceId));
+  form.append("document", file);
+
+  try {
+    const response = await axiosInstance.post(api.uploadDocument, form);
+    return response.data;
+  } catch (error) {
+    throw new Error(errorMessage(error, "Failed to upload document"));
+  }
+};
+
+export const viewAttendanceDocument = async (
+  attendanceId: number,
+): Promise<void> => {
+  try {
+    const response = await axiosInstance.get(api.document(attendanceId), {
+      responseType: "blob",
+    });
+    const blob =
+      response.data instanceof Blob
+        ? response.data
+        : new Blob([response.data as BlobPart]);
+    const url = window.URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+  } catch (error) {
+    throw new Error(errorMessage(error, "Failed to open document"));
   }
 };

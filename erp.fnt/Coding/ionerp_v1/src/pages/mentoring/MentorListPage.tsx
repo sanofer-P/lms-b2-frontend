@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import MentoringPageLayout from "./MentoringPageLayout";
 import { FaFilePdf } from "react-icons/fa";
 import { toast } from "react-toastify";
@@ -43,12 +43,15 @@ const MentorListPage: React.FC = () => {
   // 1. Fetch departments on mount
   useEffect(() => {
     const fetchDepartments = async () => {
-      const result = await customApiCallRef.current<null, DepartmentItem[]>(
-        LmsApiEndpoint.mentorList.departments,
-        "get"
-      );
-      if (result) {
-        setDepartments(result);
+      try {
+        const result = await customApiCallRef.current<null, DepartmentItem[]>(
+          LmsApiEndpoint.mentorList.departments,
+          "get"
+        );
+        setDepartments(Array.isArray(result) ? result : []);
+      } catch {
+        setDepartments([]);
+        toast.error("Failed to load departments.");
       }
     };
     fetchDepartments();
@@ -68,18 +71,24 @@ const MentorListPage: React.FC = () => {
     }
     const fetchPrograms = async () => {
       setProgramsLoading(true);
-      const result = await customApiCallRef.current<null, ProgramItem[]>(
-        `${LmsApiEndpoint.mentorList.programs}?dept_id=${departmentId}`,
-        "get"
-      );
-      setPrograms(result ?? []);
-      setProgramId("");
-      setCurriculums([]);
-      setCurriculumId("");
-      setSemesters([]);
-      setSemesterId("");
-      setRecords([]);
-      setProgramsLoading(false);
+      try {
+        const result = await customApiCallRef.current<null, ProgramItem[]>(
+          `${LmsApiEndpoint.mentorList.programs}?dept_id=${departmentId}`,
+          "get"
+        );
+        setPrograms(Array.isArray(result) ? result : []);
+      } catch {
+        setPrograms([]);
+        toast.error("Failed to load programs.");
+      } finally {
+        setProgramId("");
+        setCurriculums([]);
+        setCurriculumId("");
+        setSemesters([]);
+        setSemesterId("");
+        setRecords([]);
+        setProgramsLoading(false);
+      }
     };
     fetchPrograms();
   }, [departmentId]);
@@ -96,16 +105,22 @@ const MentorListPage: React.FC = () => {
     }
     const fetchCurriculums = async () => {
       setCurriculumsLoading(true);
-      const result = await customApiCallRef.current<null, CurriculumItem[]>(
-        `${LmsApiEndpoint.mentorList.curriculums}?dept_id=${departmentId}&pgm_id=${programId}`,
-        "get"
-      );
-      setCurriculums(result ?? []);
-      setCurriculumId("");
-      setSemesters([]);
-      setSemesterId("");
-      setRecords([]);
-      setCurriculumsLoading(false);
+      try {
+        const result = await customApiCallRef.current<null, CurriculumItem[]>(
+          `${LmsApiEndpoint.mentorList.curriculums}?dept_id=${departmentId}&pgm_id=${programId}`,
+          "get"
+        );
+        setCurriculums(Array.isArray(result) ? result : []);
+      } catch {
+        setCurriculums([]);
+        toast.error("Failed to load curricula.");
+      } finally {
+        setCurriculumId("");
+        setSemesters([]);
+        setSemesterId("");
+        setRecords([]);
+        setCurriculumsLoading(false);
+      }
     };
     fetchCurriculums();
   }, [departmentId, programId]);
@@ -120,14 +135,20 @@ const MentorListPage: React.FC = () => {
     }
     const fetchSemesters = async () => {
       setSemestersLoading(true);
-      const result = await customApiCallRef.current<null, any[]>(
-        `${LmsApiEndpoint.mentorList.semesters}?dept_id=${departmentId}&pgm_id=${programId}&curriculum_id=${curriculumId}`,
-        "get"
-      );
-      setSemesters(result ?? []);
-      setSemesterId("");
-      setRecords([]);
-      setSemestersLoading(false);
+      try {
+        const result = await customApiCallRef.current<null, any[]>(
+          `${LmsApiEndpoint.mentorList.semesters}?dept_id=${departmentId}&pgm_id=${programId}&curriculum_id=${curriculumId}`,
+          "get"
+        );
+        setSemesters(Array.isArray(result) ? result : []);
+      } catch {
+        setSemesters([]);
+        toast.error("Failed to load terms.");
+      } finally {
+        setSemesterId("");
+        setRecords([]);
+        setSemestersLoading(false);
+      }
     };
     fetchSemesters();
   }, [departmentId, programId, curriculumId]);
@@ -141,12 +162,15 @@ const MentorListPage: React.FC = () => {
     const fetchAllocation = async () => {
       setListLoading(true);
       const url = `${LmsApiEndpoint.mentorList.mentorsMentees}?dept_id=${departmentId}&pgm_id=${programId}&curriculum_id=${curriculumId}&semester_id=${semesterId}`;
-      const result = await customApiCallRef.current<null, MentorMenteeRecord[]>(
-        url,
-        "get"
-      );
-      setRecords(result ?? []);
-      setListLoading(false);
+      try {
+        const result = await customApiCallRef.current<null, MentorMenteeRecord[]>(url, "get");
+        setRecords(Array.isArray(result) ? result : []);
+      } catch {
+        setRecords([]);
+        toast.error("Failed to load the mentor list.");
+      } finally {
+        setListLoading(false);
+      }
     };
     fetchAllocation();
   }, [departmentId, programId, curriculumId, semesterId]);
@@ -264,7 +288,7 @@ const MentorListPage: React.FC = () => {
             <div className="flex-shrink-0 w-full lg:w-auto">
               <button
                 onClick={handleExportPdf}
-                disabled={!departmentId || !programId || !curriculumId || !semesterId}
+                disabled={!departmentId || !programId || !curriculumId || !semesterId || records.length === 0}
                 className="flex items-center justify-center gap-1.5 px-5 py-2 bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded shadow transition duration-150 cursor-pointer w-full lg:w-auto h-[38px] select-none"
                 title="Export Mentor List as PDF"
               >

@@ -110,17 +110,28 @@ const StudentAttendanceReport: React.FC = () => {
       setErrorMessage("");
 
       try {
-        const [sections, courses] = await Promise.all([
-          fetchAttendanceSections(filters.curriculum, filters.term),
-          fetchAttendanceCourses(filters.curriculum, filters.term),
+        const [sectionsResult, coursesResult] = await Promise.all([
+          fetchAttendanceSections(filters.curriculum, filters.term)
+            .then((data) => ({ data, error: null as unknown }))
+            .catch((error: unknown) => ({ data: [] as AttendanceOption[], error })),
+          fetchAttendanceCourses(filters.curriculum, filters.term)
+            .then((data) => ({ data, error: null as unknown }))
+            .catch((error: unknown) => ({ data: [] as AttendanceOption[], error })),
         ]);
 
-        setSectionOptions(sections);
-        setCourseOptions(courses);
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Failed to load courses and sections";
-        setErrorMessage(message);
+        setSectionOptions(sectionsResult.data);
+        setCourseOptions(coursesResult.data);
+
+        const errors = [coursesResult.error, sectionsResult.error].filter(Boolean);
+        if (errors.length > 0) {
+          const messages = errors.map((error) =>
+            error instanceof Error ? error.message : "Failed to load dropdown data"
+          );
+          const uniqueMessages = messages.filter(
+            (message, index) => messages.indexOf(message) === index
+          );
+          setErrorMessage(uniqueMessages.join("; "));
+        }
       } finally {
         setLoading((prev) => ({ ...prev, courses: false, sections: false }));
       }

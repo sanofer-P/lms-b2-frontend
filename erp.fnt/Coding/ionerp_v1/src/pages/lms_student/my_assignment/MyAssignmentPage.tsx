@@ -209,24 +209,34 @@ const MyAssignmentPage: React.FC = () => {
     } finally { setUploading(false); }
   };
 
-  const downloadAssignment = (assignment: SharedAssignment) => {
+  const downloadAssignment = async (assignment: SharedAssignment) => {
     // If no file was uploaded by faculty for this assignment, show a clear message
     if (!assignment.assignment_file_name) {
       toast.info('No file attached to this assignment by the faculty.');
       return;
     }
     
-    // Trigger native browser download directly via the API URL.
-    // The server handles the 'Content-Disposition' header with the exact filename.
-    const baseURL = axiosInstance.defaults.baseURL || '';
-    const url = `${baseURL}${STUDENT_ASSIGN_API}/download/${assignment.lms_assignment_id}`;
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      const response = await axiosInstance.get<Blob>(
+        `${STUDENT_ASSIGN_API}/download/${assignment.lms_assignment_id}`,
+        {
+          params: { student_id: studentId },
+          responseType: 'blob',
+        },
+      );
+
+      const blobUrl = window.URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = assignment.assignment_file_name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error('Assignment download failed', err);
+      toast.error('Unable to download the assignment document.');
+    }
   };
 
   const filtered = assignments.filter(a => {
